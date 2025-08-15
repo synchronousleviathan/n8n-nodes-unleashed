@@ -1,48 +1,96 @@
-![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
+# n8n-nodes-unleashed
 
-# n8n-nodes-starter
+This is an n8n community node for integrating with the [Unleashed](https://www.unleashedsoftware.com/) inventory management system. It allows you to automate workflows with Unleashed using n8n.
 
-This repo contains example nodes to help you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
+[n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
-To make your custom node available to the community, you must create it as an npm package, and [submit it to the npm registry](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry).
+## Features
 
-If you would like your node to be available on n8n cloud you can also [submit your node for verification](https://docs.n8n.io/integrations/creating-nodes/deploy/submit-community-nodes/).
+This node integrates with the Unleashed API and provides functionality to:
 
-## Prerequisites
+- Query and retrieve sales orders, invoices, and other Unleashed resources
+- Create new sales orders with detailed line items
+- Update existing sales orders including delivery instructions
+- Complete sales orders in the Unleashed system
+- Access multiple API endpoints with authentication handling built-in
 
-You need the following installed on your development machine:
+## Installation
 
-* [git](https://git-scm.com/downloads)
-* Node.js and npm. Minimum version Node 20. You can find instructions on how to install both using nvm (Node Version Manager) for Linux, Mac, and WSL [here](https://github.com/nvm-sh/nvm). For Windows users, refer to Microsoft's guide to [Install NodeJS on Windows](https://docs.microsoft.com/en-us/windows/dev-environment/javascript/nodejs-on-windows).
-* Install n8n with:
-  ```
-  npm install n8n -g
-  ```
-* Recommended: follow n8n's guide to [set up your development environment](https://docs.n8n.io/integrations/creating-nodes/build/node-development-environment/).
+Follow these steps to install this node in your n8n instance:
 
-## Using this starter
+### Community Nodes (Recommended)
 
-These are the basic steps for working with the starter. For detailed guidance on creating and publishing nodes, refer to the [documentation](https://docs.n8n.io/integrations/creating-nodes/).
+For users on n8n Cloud:
 
-1. [Generate a new repository](https://github.com/n8n-io/n8n-nodes-starter/generate) from this template repository.
-2. Clone your new repo:
-   ```
-   git clone https://github.com/<your organization>/<your-repo-name>.git
-   ```
-3. Run `npm i` to install dependencies.
-4. Open the project in your editor.
-5. Browse the examples in `/nodes` and `/credentials`. Modify the examples, or replace them with your own nodes.
-6. Update the `package.json` to match your details.
-7. Run `npm run lint` to check for errors or `npm run lintfix` to automatically fix errors when possible.
-8. Test your node locally. Refer to [Run your node locally](https://docs.n8n.io/integrations/creating-nodes/test/run-node-locally/) for guidance.
-9. Replace this README with documentation for your node. Use the [README_TEMPLATE](README_TEMPLATE.md) to get started.
-10. Update the LICENSE file to use your details.
-11. [Publish](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry) your package to npm.
+1. Go to **Settings > Community Nodes**
+2. Select **Install Community Node**
+3. Enter `n8n-nodes-unleashed` in the **Enter npm package name** field
+4. Click **Install**
 
-## More information
+For self-hosted n8n users:
 
-Refer to our [documentation on creating nodes](https://docs.n8n.io/integrations/creating-nodes/) for detailed information on building your own nodes.
+```bash
+npm install n8n-nodes-unleashed
+```
+
+### Manual Installation
+
+1. Clone the repository into your custom nodes directory:
+```bash
+git clone https://github.com/neilcayton/n8n-nodes-unleashed.git
+```
+
+2. Install dependencies:
+```bash
+cd n8n-nodes-unleashed
+npm install
+```
+
+3. Build the code:
+```bash
+npm run build
+```
+
+4. Restart n8n
+
+## Usage
+
+After installing the node, it will appear in the nodes panel under "Unleashed" category.
+
+### Credentials
+
+To use the node, you need to create an Unleashed API credential:
+
+1. Get your API ID and API Key from the Unleashed Developer Portal
+2. Create a new "Unleashed API" credential in n8n
+3. Enter your API ID and API Key
+
+### Operations
+
+The node currently supports the following operations:
+
+#### Sales Orders
+- **Get**: Retrieve a specific sales order by ID
+- **Get All**: List all sales orders with optional filtering
+- **Create**: Create a new sales order with customer details, line items, and delivery instructions
+- **Update**: Update an existing sales order
+- **Complete**: Mark a sales order as complete
+
+### Example Workflow
+
+Here's an example of how to use this node to create a new sales order in Unleashed:
+
+1. Add the **Unleashed** node to your workflow
+2. Select the **Sales Order** resource
+3. Choose the **Create** operation
+4. Configure the node with customer code, order details, and line items
+5. Connect to other nodes in your workflow to process the response
+
+## Resources & Links
+
+* [Unleashed API Documentation](https://apidocs.unleashedsoftware.com/)
+* [n8n Community Nodes Documentation](https://docs.n8n.io/integrations/community-nodes/)
 
 ## License
 
-[MIT](https://github.com/n8n-io/n8n-nodes-starter/blob/master/LICENSE.md)
+[MIT](LICENSE.md)
