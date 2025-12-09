@@ -39,6 +39,7 @@ export class UnleashedApi implements ICredentialType {
         'api-auth-signature': '={{$credentials.apiKey}}',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+				'client-type': 'n8nnodesunleashed/n8n'
       },
     },
   };
