@@ -143,6 +143,7 @@ export const customerFields: INodeProperties[] = [
         displayName: 'Email',
         name: 'email',
         type: 'string',
+        placeholder: 'name@email.com',
         default: '',
         description: 'An email address associated with the customer',
       },
