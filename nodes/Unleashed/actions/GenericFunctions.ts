@@ -41,6 +41,7 @@ export async function unleashedApiRequest(
     'api-auth-signature': signature,
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'client-type': 'n8nnodesunleashed/n8n',
   };
 
   // Build the URL
@@ -82,15 +83,15 @@ export async function unleashedApiRequestAllItems(
   const returnData: any[] = [];
   
   let responseData;
-  query.pageSize = 100; // Maximum page size
-  query.page = 1;
-  
+  let page = 1;
+  query.pageSize = 1000; // Maximum page size
+
   do {
-    responseData = await unleashedApiRequest.call(this, method, endpoint, body, query);
+    responseData = await unleashedApiRequest.call(this, method, `${endpoint}/${page}`, body, query);
     returnData.push.apply(returnData, responseData[propertyName] || []);
-    query.page++;
+    page++;
   } while (
-    responseData.Pagination && 
+    responseData.Pagination &&
     responseData.Pagination.PageNumber < responseData.Pagination.NumberOfPages
   );
   

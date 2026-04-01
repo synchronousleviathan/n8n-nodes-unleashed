@@ -9,135 +9,136 @@ export async function handleProduct(
   operation: string,
   itemIndex: number,
 ) {
-  // Get Product ID/Code for single operations
+  // Get Product Code/GUID for single operations
   let productCode = '';
   if (['get', 'update'].includes(operation)) {
     productCode = this.getNodeParameter('productCode', itemIndex) as string;
   }
-  
+
   // Handle operations
   if (operation === 'get') {
-    // Get a single product
     return await unleashedApiRequest.call(this, 'GET', `/Products/${productCode}`);
   }
-  
+
   if (operation === 'getAll') {
-    // Get all products with optional filters
     const returnAll = this.getNodeParameter('returnAll', itemIndex) as boolean;
-    const filters = this.getNodeParameter('filters', itemIndex, {}) as {
-      modifiedSince?: string;
-      productGroup?: string;
-      barcode?: string;
-      supplier?: string;
-      brand?: string;
-    };
-    
+    const filters = this.getNodeParameter('filters', itemIndex, {}) as Record<string, any>;
+
     const qs: any = {};
-    
-    // Add filters to query string
+
     if (filters.modifiedSince) qs.modifiedSince = filters.modifiedSince;
     if (filters.productGroup) qs.productGroup = filters.productGroup;
     if (filters.barcode) qs.barcode = filters.barcode;
     if (filters.supplier) qs.supplier = filters.supplier;
+    if (filters.supplierCode) qs.supplierCode = filters.supplierCode;
     if (filters.brand) qs.brand = filters.brand;
-    
+    if (filters.search) qs.search = filters.search;
+    if (filters.sellPriceTier) qs.sellPriceTier = filters.sellPriceTier;
+    if (filters.includeObsolete != null) qs.includeObsolete = filters.includeObsolete;
+    if (filters.excludeAssembled != null) qs.excludeAssembled = filters.excludeAssembled;
+    if (filters.excludeComponents != null) qs.excludeComponents = filters.excludeComponents;
+    if (filters.orderBy) qs.orderBy = filters.orderBy;
+    if (filters.sort) qs.sort = filters.sort;
+
     if (returnAll) {
-      // Get all results
       return await unleashedApiRequestAllItems.call(this, 'Items', 'GET', '/Products', {}, qs);
     } else {
-      // Get limited results
       const limit = this.getNodeParameter('limit', itemIndex, 50) as number;
       qs.pageSize = limit;
-      const response = await unleashedApiRequest.call(this, 'GET', '/Products', {}, qs);
+      const response = await unleashedApiRequest.call(this, 'GET', '/Products/1', {}, qs);
       return response.Items || [];
     }
   }
-  
+
   if (operation === 'create') {
-    // Create a new product
-    const productDetails = this.getNodeParameter('productDetails', itemIndex) as {
-      productCode: string;
-      productDescription: string;
-      productGroup?: string;
-      barcode?: string;
-      brand?: string;
-      averageCost?: number;
-      defaultSellPrice?: number;
-      minimumSellPrice?: number;
-      weight?: number;
-      width?: number;
-      height?: number;
-      depth?: number;
-      notes?: string;
-      isComponent?: boolean;
-    };
-    
-    // Build request body
+    const productCodeValue = this.getNodeParameter('productCodeCreate', itemIndex) as string;
+    const productDescriptionValue = this.getNodeParameter('productDescription', itemIndex) as string;
+    const productDetails = this.getNodeParameter('productDetails', itemIndex, {}) as Record<string, any>;
+
     const body: any = {
-      ProductCode: productDetails.productCode,
-      ProductDescription: productDetails.productDescription,
+      ProductCode: productCodeValue,
+      ProductDescription: productDescriptionValue,
     };
-    
-    // Add optional fields if provided
-    if (productDetails.productGroup) body.ProductGroup = { GroupName: productDetails.productGroup };
-    if (productDetails.barcode) body.Barcode = productDetails.barcode;
-    if (productDetails.brand) body.Brand = productDetails.brand;
-    if (productDetails.averageCost) body.AverageCost = productDetails.averageCost;
-    if (productDetails.defaultSellPrice) body.DefaultSellPrice = productDetails.defaultSellPrice;
-    if (productDetails.minimumSellPrice) body.MinimumSellPrice = productDetails.minimumSellPrice;
-    if (productDetails.weight) body.Weight = productDetails.weight;
-    if (productDetails.width) body.Width = productDetails.width;
-    if (productDetails.height) body.Height = productDetails.height;
-    if (productDetails.depth) body.Depth = productDetails.depth;
-    if (productDetails.notes) body.Notes = productDetails.notes;
-    if (productDetails.isComponent !== undefined) body.IsComponent = productDetails.isComponent;
-    
+
+    applyProductDetails(body, productDetails);
+
     return await unleashedApiRequest.call(this, 'POST', '/Products', body);
   }
-  
+
   if (operation === 'update') {
-    // Update an existing product
-    // First, get the current product data
+    // Fetch current product first — the API does not support partial updates
     const currentProduct = await unleashedApiRequest.call(this, 'GET', `/Products/${productCode}`);
-    
-    const productDetails = this.getNodeParameter('productDetails', itemIndex, {}) as {
-      productDescription?: string;
-      productGroup?: string;
-      barcode?: string;
-      brand?: string;
-      averageCost?: number;
-      defaultSellPrice?: number;
-      minimumSellPrice?: number;
-      weight?: number;
-      width?: number;
-      height?: number;
-      depth?: number;
-      notes?: string;
-      isComponent?: boolean;
-    };
-    
-    // Prepare the update body with existing data
+
+    const productDetails = this.getNodeParameter('productDetails', itemIndex, {}) as Record<string, any>;
+
     const body = { ...currentProduct };
-    
-    // Update fields if provided
-    if (productDetails.productDescription) body.ProductDescription = productDetails.productDescription;
-    if (productDetails.productGroup) {
-      body.ProductGroup = { GroupName: productDetails.productGroup };
-    }
-    if (productDetails.barcode) body.Barcode = productDetails.barcode;
-    if (productDetails.brand) body.Brand = productDetails.brand;
-    if (productDetails.averageCost) body.AverageCost = productDetails.averageCost;
-    if (productDetails.defaultSellPrice) body.DefaultSellPrice = productDetails.defaultSellPrice;
-    if (productDetails.minimumSellPrice) body.MinimumSellPrice = productDetails.minimumSellPrice;
-    if (productDetails.weight) body.Weight = productDetails.weight;
-    if (productDetails.width) body.Width = productDetails.width;
-    if (productDetails.height) body.Height = productDetails.height;
-    if (productDetails.depth) body.Depth = productDetails.depth;
-    if (productDetails.notes) body.Notes = productDetails.notes;
-    if (productDetails.isComponent !== undefined) body.IsComponent = productDetails.isComponent;
-    
+
+    applyProductDetails(body, productDetails);
+
     return await unleashedApiRequest.call(this, 'PUT', `/Products/${productCode}`, body);
   }
-  
+
   return null;
+}
+
+function applyProductDetails(body: any, d: Record<string, any>) {
+  // String fields
+  if (d.productDescription) body.ProductDescription = d.productDescription;
+  if (d.barcode) body.Barcode = d.barcode;
+  if (d.brand) body.Brand = d.brand;
+  if (d.notes) body.Notes = d.notes;
+  if (d.binLocation) body.BinLocation = d.binLocation;
+  if (d.supplierCode) body.SupplierCode = d.supplierCode;
+  if (d.supplierProductCode) body.SupplierProductCode = d.supplierProductCode;
+  if (d.unitOfMeasure) body.UnitOfMeasure = { Name: d.unitOfMeasure };
+  if (d.xeroCostOfGoodsAccount) body.XeroCostOfGoodsAccount = d.xeroCostOfGoodsAccount;
+  if (d.xeroSalesAccount) body.XeroSalesAccount = d.xeroSalesAccount;
+  if (d.taxablePurchase) body.TaxablePurchase = d.taxablePurchase;
+  if (d.taxableSales) body.TaxableSales = d.taxableSales;
+
+  // Product group as nested object
+  if (d.productGroup) body.ProductGroup = { GroupName: d.productGroup };
+
+  // Numeric fields
+  const numericFields: Record<string, string> = {
+    averageCost: 'AverageCost',
+    defaultSellPrice: 'DefaultSellPrice',
+    defaultPurchasePrice: 'DefaultPurchasePrice',
+    minimumSellPrice: 'MinimumSellPrice',
+    lastCost: 'LastCost',
+    weight: 'Weight',
+    width: 'Width',
+    height: 'Height',
+    depth: 'Depth',
+    packSize: 'PackSize',
+    minStockAlertLevel: 'MinStockAlertLevel',
+    maxStockAlertLevel: 'MaxStockAlertLevel',
+    reOrderLevel: 'ReOrderLevel',
+    minimumOrderQuantity: 'MinimumOrderQuantity',
+    sellPriceTier1: 'SellPriceTier1',
+    sellPriceTier2: 'SellPriceTier2',
+    sellPriceTier3: 'SellPriceTier3',
+    sellPriceTier4: 'SellPriceTier4',
+    sellPriceTier5: 'SellPriceTier5',
+    sellPriceTier6: 'SellPriceTier6',
+    sellPriceTier7: 'SellPriceTier7',
+    sellPriceTier8: 'SellPriceTier8',
+    sellPriceTier9: 'SellPriceTier9',
+    sellPriceTier10: 'SellPriceTier10',
+  };
+  for (const [key, apiKey] of Object.entries(numericFields)) {
+    if (d[key] != null) body[apiKey] = d[key];
+  }
+
+  // Boolean fields
+  const boolFields: Record<string, string> = {
+    isComponent: 'IsComponent',
+    isAssembled: 'IsAssembledProduct',
+    isSellable: 'IsSellable',
+    neverDiminishing: 'NeverDiminishing',
+    obsolete: 'Obsolete',
+  };
+  for (const [key, apiKey] of Object.entries(boolFields)) {
+    if (d[key] != null) body[apiKey] = d[key];
+  }
 }

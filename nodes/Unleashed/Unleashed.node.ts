@@ -39,6 +39,7 @@ export class Unleashed implements INodeType {
     defaults: {
       name: 'Unleashed',
     },
+    usableAsTool: true,
     inputs: [NodeConnectionType.Main],
     outputs: [NodeConnectionType.Main],
     credentials: [
@@ -113,13 +114,13 @@ export class Unleashed implements INodeType {
         }
 
         if (Array.isArray(responseData)) {
-          returnData.push(...responseData);
-        } else {
-          returnData.push({ json: responseData });
+          returnData.push(...responseData.map((item: any) => ({ json: item, pairedItem: { item: i } })));
+        } else if (responseData) {
+          returnData.push({ json: responseData, pairedItem: { item: i } });
         }
       } catch (error) {
         if (this.continueOnFail()) {
-          returnData.push({ json: { error: error.message } });
+          returnData.push({ json: { error: error.message }, pairedItem: { item: i } });
           continue;
         }
         throw error;
