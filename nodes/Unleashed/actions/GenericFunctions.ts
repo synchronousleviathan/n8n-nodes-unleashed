@@ -26,8 +26,14 @@ export async function unleashedApiRequest(
     headers: {},
   };
 
-  // Convert query parameters to string
-  const queryString = new URLSearchParams(qs || {}).toString();
+  // Convert query parameters to string, filtering out empty/null/undefined values
+  const cleanQs: Record<string, string> = {};
+  for (const [key, value] of Object.entries(qs || {})) {
+    if (value != null && value !== '') {
+      cleanQs[key] = String(value);
+    }
+  }
+  const queryString = new URLSearchParams(cleanQs).toString();
   
   // Create the API signature using the API key
   const signature = createHmac('sha256', credentials.apiKey as string)
@@ -55,16 +61,17 @@ export async function unleashedApiRequest(
   try {
     return await this.helpers.httpRequest(options);
   } catch (error) {
-    if (error.response?.body) {
-      // Try to return the error prettier
-      const errorBody = error.response.body;
-      if (errorBody.Message) {
-        throw new Error(`Unleashed error response [${error.statusCode}]: ${errorBody.Message}`);
-      } else if (typeof errorBody === 'string') {
-        throw new Error(`Unleashed error response [${error.statusCode}]: ${errorBody}`);
-      }
+    // Extract a clean error message to avoid circular reference issues
+    // when n8n tries to serialize the Axios error object
+    const status = error.statusCode || error.response?.status || 'unknown';
+    const body = error.response?.body || error.response?.data;
+    if (body) {
+      const msg = (typeof body === 'object' && body.Message) ? body.Message
+        : (typeof body === 'string') ? body
+        : JSON.stringify(body);
+      throw new Error(`Unleashed API error [${status}]: ${msg}`);
     }
-    throw error;
+    throw new Error(`Unleashed API error [${status}]: ${error.message || 'Unknown error'}`);
   }
 }
 
