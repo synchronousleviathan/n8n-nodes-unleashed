@@ -22,7 +22,6 @@ export async function unleashedApiRequest(
   const options: IHttpRequestOptions = {
     method,
     body,
-    qs,
     url: '',
     headers: {},
   };

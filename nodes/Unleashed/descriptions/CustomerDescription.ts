@@ -19,6 +19,12 @@ export const customerOperations: INodeProperties[] = [
         action: 'Create a customer',
       },
       {
+        name: 'Fuzzy Search',
+        value: 'fuzzySearch',
+        description: 'Search customers by matching against a block of text',
+        action: 'Fuzzy search customers',
+      },
+      {
         name: 'Get',
         value: 'get',
         description: 'Get a customer',
@@ -89,6 +95,108 @@ export const customerFields: INodeProperties[] = [
     default: 50,
     description: 'Max number of results to return',
   },
+  // FUZZY SEARCH — structured input fields
+  {
+    displayName: 'Search Inputs',
+    name: 'searchInputs',
+    type: 'collection',
+    placeholder: 'Add Search Field',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['fuzzySearch'],
+      },
+    },
+    default: {},
+    description: 'Provide as many fields as you have — the more you provide, the better the match quality',
+    options: [
+      {
+        displayName: 'Address',
+        name: 'address',
+        type: 'string',
+        typeOptions: { rows: 2 },
+        default: '',
+        description: 'Full or partial address (street, city, region, country, postal code)',
+      },
+      {
+        displayName: 'Company / Customer Name',
+        name: 'customerName',
+        type: 'string',
+        default: '',
+        description: 'The company or customer name to search for',
+      },
+      {
+        displayName: 'Contact Name',
+        name: 'contactName',
+        type: 'string',
+        default: '',
+        description: 'A contact person\'s name (first, last, or full)',
+      },
+      {
+        displayName: 'Customer Code',
+        name: 'customerCode',
+        type: 'string',
+        default: '',
+        description: 'A known or partial customer code',
+      },
+      {
+        displayName: 'Email',
+        name: 'email',
+        type: 'string',
+        default: '',
+        description: 'An email address associated with the customer',
+      },
+      {
+        displayName: 'Phone Number',
+        name: 'phone',
+        type: 'string',
+        default: '',
+        description: 'A phone, mobile, or fax number (any format)',
+      },
+      {
+        displayName: 'Website',
+        name: 'website',
+        type: 'string',
+        default: '',
+        description: 'The customer\'s website URL or domain',
+      },
+    ],
+  },
+  {
+    displayName: 'Max Results',
+    name: 'maxResults',
+    type: 'number',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['fuzzySearch'],
+      },
+    },
+    typeOptions: {
+      minValue: 1,
+    },
+    default: 5,
+    description: 'Maximum number of matching customers to return',
+  },
+  {
+    displayName: 'Minimum Confidence %',
+    name: 'minConfidence',
+    type: 'number',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['fuzzySearch'],
+      },
+    },
+    typeOptions: {
+      minValue: 0,
+      maxValue: 100,
+    },
+    default: 10,
+    description: 'Only return matches with at least this confidence percentage',
+  },
+
+  // GET ALL — Filters
   {
     displayName: 'Filters',
     name: 'filters',
