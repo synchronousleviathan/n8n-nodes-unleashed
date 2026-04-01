@@ -82,6 +82,16 @@ try {
   const pkg = require('./package.json');
   
   // Create a simplified package.json for the dist directory
+  // Rewrite n8n paths: the root package.json uses "dist/..." prefixes,
+  // but the dist package.json is already inside dist, so strip them.
+  const n8n = JSON.parse(JSON.stringify(pkg.n8n));
+  if (n8n.credentials) {
+    n8n.credentials = n8n.credentials.map((p) => p.replace(/^dist\//, ''));
+  }
+  if (n8n.nodes) {
+    n8n.nodes = n8n.nodes.map((p) => p.replace(/^dist\//, ''));
+  }
+
   const distPkg = {
     name: pkg.name,
     version: pkg.version,
@@ -89,13 +99,10 @@ try {
     license: pkg.license,
     author: pkg.author,
     keywords: pkg.keywords,
-    n8n: pkg.n8n,
+    n8n,
     main: 'index.js',
     types: 'index.d.ts',
-    repository: {
-      type: 'git',
-      url: 'https://github.com/neilcayton/n8n-nodes-unleashed.git'
-    },
+    repository: pkg.repository,
     peerDependencies: {
       'n8n-workflow': '*'
     }
