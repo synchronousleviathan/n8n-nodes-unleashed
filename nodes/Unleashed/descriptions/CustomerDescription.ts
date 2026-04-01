@@ -85,7 +85,6 @@ export const customerFields: INodeProperties[] = [
     },
     typeOptions: {
       minValue: 1,
-      maxValue: 200,
     },
     default: 50,
     description: 'Max number of results to return',
@@ -103,6 +102,20 @@ export const customerFields: INodeProperties[] = [
       },
     },
     options: [
+      {
+        displayName: 'Contact Email',
+        name: 'contactEmail',
+        type: 'string',
+        default: '',
+        description: 'Filter by contact email address',
+      },
+      {
+        displayName: 'Currency',
+        name: 'currency',
+        type: 'string',
+        default: '',
+        description: 'Filter by currency code (e.g. NZD, USD)',
+      },
       {
         displayName: 'Customer',
         name: 'customer',
@@ -130,20 +143,6 @@ export const customerFields: INodeProperties[] = [
         type: 'string',
         default: '',
         description: 'Filter by customer type',
-      },
-      {
-        displayName: 'Contact Email',
-        name: 'contactEmail',
-        type: 'string',
-        default: '',
-        description: 'Filter by contact email address',
-      },
-      {
-        displayName: 'Currency',
-        name: 'currency',
-        type: 'string',
-        default: '',
-        description: 'Filter by currency code (e.g. NZD, USD)',
       },
       {
         displayName: 'Include All Contacts',
@@ -248,7 +247,6 @@ export const customerFields: INodeProperties[] = [
     },
     default: '',
     required: true,
-    description: 'The customer name',
   },
 
   // CREATE/UPDATE — Customer Details collection
@@ -421,7 +419,6 @@ export const customerFields: INodeProperties[] = [
         name: 'faxNumber',
         type: 'string',
         default: '',
-        description: 'The fax number',
       },
       {
         displayName: 'GST/VAT Number',
@@ -473,7 +470,6 @@ export const customerFields: INodeProperties[] = [
         name: 'phoneNumber',
         type: 'string',
         default: '',
-        description: 'The phone number',
       },
       {
         displayName: 'Print Invoice',
@@ -536,7 +532,6 @@ export const customerFields: INodeProperties[] = [
         name: 'taxCode',
         type: 'string',
         default: '',
-        description: 'The tax code',
       },
       {
         displayName: 'Tax Rate',
@@ -546,7 +541,6 @@ export const customerFields: INodeProperties[] = [
           numberPrecision: 4,
         },
         default: 0,
-        description: 'The tax rate',
       },
       {
         displayName: 'Taxable',
@@ -560,7 +554,6 @@ export const customerFields: INodeProperties[] = [
         name: 'tollFreeNumber',
         type: 'string',
         default: '',
-        description: 'The toll free number',
       },
       {
         displayName: 'Website',
@@ -654,14 +647,12 @@ export const customerFields: INodeProperties[] = [
             name: 'suburb',
             type: 'string',
             default: '',
-            description: 'The suburb',
           },
           {
             displayName: 'City',
             name: 'city',
             type: 'string',
             default: '',
-            description: 'The city',
           },
           {
             displayName: 'Region',
@@ -675,7 +666,6 @@ export const customerFields: INodeProperties[] = [
             name: 'country',
             type: 'string',
             default: '',
-            description: 'The country',
           },
           {
             displayName: 'Postal Code',
