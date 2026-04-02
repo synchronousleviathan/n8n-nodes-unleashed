@@ -26,14 +26,17 @@ export async function unleashedApiRequest(
     headers: {},
   };
 
-  // Convert query parameters to string, filtering out empty/null/undefined values
-  const cleanQs: Record<string, string> = {};
+  // Build query string manually without URL-encoding values.
+  // The Unleashed API expects the HMAC signature to be computed over
+  // the raw query string, and URL-encoding (e.g. @ → %40) causes
+  // a signature mismatch → 403.
+  const queryParts: string[] = [];
   for (const [key, value] of Object.entries(qs || {})) {
     if (value != null && value !== '') {
-      cleanQs[key] = String(value);
+      queryParts.push(`${key}=${String(value)}`);
     }
   }
-  const queryString = new URLSearchParams(cleanQs).toString();
+  const queryString = queryParts.join('&');
   
   // Create the API signature using the API key
   const signature = createHmac('sha256', credentials.apiKey as string)
