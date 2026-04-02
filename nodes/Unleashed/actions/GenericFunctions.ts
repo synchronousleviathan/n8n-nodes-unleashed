@@ -8,70 +8,77 @@ import {
 } from 'n8n-workflow';
 import { createHmac } from 'crypto';
 
+const BASE_URL = 'https://api.unleashedsoftware.com';
+
 /**
- * Make an API request to Unleashed
+ * Build a raw query string from key/value pairs.
+ *
+ * The Unleashed API requires the HMAC signature to be computed over the
+ * raw (unencoded) query string. Using URLSearchParams or encodeURIComponent
+ * causes encoding (e.g. @ → %40, space → +) that produces a signature
+ * mismatch → 403. We build the string manually and use it for both
+ * the signature and the URL so they can never diverge.
+ *
+ * Null, undefined, and empty-string values are stripped.
+ */
+function buildQueryString(params: Record<string, any> | undefined): string {
+  if (!params) return '';
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== '') {
+      parts.push(`${key}=${String(value)}`);
+    }
+  }
+  return parts.join('&');
+}
+
+/**
+ * Make an authenticated API request to Unleashed.
  */
 export async function unleashedApiRequest(
   this: IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions,
   method: IHttpRequestMethods,
   endpoint: string,
   body?: any,
-  qs?: any,
+  qs?: Record<string, any>,
 ): Promise<any> {
   const credentials = await this.getCredentials('unleashedApi');
-  const options: IHttpRequestOptions = {
-    method,
-    body,
-    url: '',
-    headers: {},
-  };
 
-  // Build query string manually without URL-encoding values.
-  // The Unleashed API expects the HMAC signature to be computed over
-  // the raw query string, and URL-encoding (e.g. @ → %40) causes
-  // a signature mismatch → 403.
-  const queryParts: string[] = [];
-  for (const [key, value] of Object.entries(qs || {})) {
-    if (value != null && value !== '') {
-      queryParts.push(`${key}=${String(value)}`);
-    }
-  }
-  const queryString = queryParts.join('&');
-  
-  // Create the API signature using the API key
+  // One query string used for both signing and the URL
+  const queryString = buildQueryString(qs);
+
   const signature = createHmac('sha256', credentials.apiKey as string)
     .update(queryString)
     .digest('base64');
 
-  // Set the request headers
-  options.headers = {
-    'api-auth-id': credentials.apiId,
-    'api-auth-signature': signature,
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'client-type': 'n8nnodesunleashed/n8n',
-  };
+  const url = queryString
+    ? `${BASE_URL}${endpoint}?${queryString}`
+    : `${BASE_URL}${endpoint}`;
 
-  // Build the URL
-  const baseUrl = 'https://api.unleashedsoftware.com';
-  options.url = `${baseUrl}${endpoint}`;
-  
-  // Add query parameters to URL if they exist
-  if (queryString) {
-    options.url += `?${queryString}`;
-  }
+  const options: IHttpRequestOptions = {
+    method,
+    body,
+    url,
+    headers: {
+      'api-auth-id': credentials.apiId,
+      'api-auth-signature': signature,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'client-type': 'n8nnodesunleashed/n8n',
+    },
+  };
 
   try {
     return await this.helpers.httpRequest(options);
   } catch (error) {
-    // Extract a clean error message to avoid circular reference issues
-    // when n8n tries to serialize the Axios error object
+    // Always throw a plain Error to avoid circular-reference crashes
+    // when n8n serializes the Axios error object.
     const status = error.statusCode || error.response?.status || 'unknown';
-    const body = error.response?.body || error.response?.data;
-    if (body) {
-      const msg = (typeof body === 'object' && body.Message) ? body.Message
-        : (typeof body === 'string') ? body
-        : JSON.stringify(body);
+    const errBody = error.response?.body || error.response?.data;
+    if (errBody) {
+      const msg = (typeof errBody === 'object' && errBody.Message) ? errBody.Message
+        : (typeof errBody === 'string') ? errBody
+        : JSON.stringify(errBody);
       throw new Error(`Unleashed API error [${status}]: ${msg}`);
     }
     throw new Error(`Unleashed API error [${status}]: ${error.message || 'Unknown error'}`);
@@ -79,7 +86,7 @@ export async function unleashedApiRequest(
 }
 
 /**
- * Make an API request to fetch all items
+ * Paginate through all results from an Unleashed API endpoint.
  */
 export async function unleashedApiRequestAllItems(
   this: IExecuteFunctions | ILoadOptionsFunctions,
@@ -87,22 +94,25 @@ export async function unleashedApiRequestAllItems(
   method: IHttpRequestMethods,
   endpoint: string,
   body?: any,
-  query: any = {},
+  query: Record<string, any> = {},
 ): Promise<any> {
   const returnData: any[] = [];
-  
-  let responseData;
   let page = 1;
-  query.pageSize = 1000; // Maximum page size
 
+  // Spread to avoid mutating the caller's object
+  const qs = { ...query, pageSize: 1000 };
+
+  let responseData;
   do {
-    responseData = await unleashedApiRequest.call(this, method, `${endpoint}/${page}`, body, query);
-    returnData.push.apply(returnData, responseData[propertyName] || []);
+    responseData = await unleashedApiRequest.call(
+      this, method, `${endpoint}/${page}`, body, qs,
+    );
+    returnData.push(...(responseData[propertyName] || []));
     page++;
   } while (
     responseData.Pagination &&
     responseData.Pagination.PageNumber < responseData.Pagination.NumberOfPages
   );
-  
+
   return returnData;
 }
