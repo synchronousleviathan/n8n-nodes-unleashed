@@ -164,6 +164,23 @@ export const customerFields: INodeProperties[] = [
     ],
   },
   {
+    displayName: 'Auto-Match Threshold %',
+    name: 'autoMatchThreshold',
+    type: 'number',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['fuzzySearch'],
+      },
+    },
+    typeOptions: {
+      minValue: 0,
+      maxValue: 100,
+    },
+    default: 80,
+    description: 'If exactly one result scores above this threshold, it is marked as auto_matched. Otherwise results are marked review_needed for human review. Recommended: 80%.',
+  },
+  {
     displayName: 'Max Results',
     name: 'maxResults',
     type: 'number',
@@ -194,7 +211,7 @@ export const customerFields: INodeProperties[] = [
       maxValue: 100,
     },
     default: 10,
-    description: 'Only return matches with at least this confidence percentage',
+    description: 'Only return results above this confidence level (filters noise)',
   },
 
   // GET ALL — Filters

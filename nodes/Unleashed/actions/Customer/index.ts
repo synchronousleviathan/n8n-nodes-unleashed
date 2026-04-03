@@ -83,6 +83,7 @@ export async function handleCustomer(
       address?: string;
       website?: string;
     };
+    const autoMatchThreshold = this.getNodeParameter('autoMatchThreshold', itemIndex, 80) as number;
     const maxResults = this.getNodeParameter('maxResults', itemIndex, 5) as number;
     const minConfidence = this.getNodeParameter('minConfidence', itemIndex, 10) as number;
 
@@ -98,7 +99,32 @@ export async function handleCustomer(
       .sort((a: any, b: any) => b._confidence - a._confidence)
       .slice(0, maxResults);
 
-    return scored;
+    // Determine match status
+    const aboveThreshold = scored.filter((c: any) => c._confidence >= autoMatchThreshold);
+
+    let matchStatus: string;
+    let matchReason: string;
+
+    if (aboveThreshold.length === 1) {
+      matchStatus = 'auto_matched';
+      matchReason = `Single match above ${autoMatchThreshold}% threshold`;
+    } else if (aboveThreshold.length > 1) {
+      matchStatus = 'review_needed';
+      matchReason = `${aboveThreshold.length} matches above ${autoMatchThreshold}% threshold — ambiguous`;
+    } else if (scored.length > 0) {
+      matchStatus = 'review_needed';
+      matchReason = `No matches above ${autoMatchThreshold}% threshold — best is ${scored[0]._confidence}%`;
+    } else {
+      matchStatus = 'review_needed';
+      matchReason = 'No matching customers found';
+    }
+
+    // Tag every result with the status so downstream nodes can route
+    return scored.map((c: any) => ({
+      ...c,
+      _matchStatus: matchStatus,
+      _matchReason: matchReason,
+    }));
   }
 
   if (operation === 'create') {
@@ -283,7 +309,7 @@ async function fetchCandidates(
     const domain = inputs.email.split('@')[1];
     if (domain) {
       merge(await fetch({ contactEmail: domain }));
-      // Also search by domain base as customer code (e.g. fdgnz.com → FDGNZ)
+      // Also search by domain base as customer code
       const domainBase = domain.split('.')[0];
       if (domainBase.length >= 3) {
         merge(await fetch({ customerCode: domainBase }));
@@ -327,7 +353,7 @@ async function fetchCandidates(
 //
 // Designed for B2B customer matching where:
 // - Email domain is near-conclusive (same domain = same company)
-// - Company names are often abbreviated/acronyms (FDG = Fasteners Direct Global)
+// - Company names are often abbreviated/acronyms
 // - Delivery addresses change constantly (new sites, projects)
 // - Contact names change (new employees placing orders)
 // - Phone numbers may be personal mobiles, not company lines
@@ -369,7 +395,7 @@ function stripSuffixes(name: string): string {
 
 /**
  * Check if `short` could be an acronym of `long`.
- * e.g. "FDG" matches "Fasteners Direct Global", "FDG NZ" matches too.
+ * e.g. "ABC" matches "Alpha Beta Corp", "ABC NZ" matches too.
  */
 function isAcronymOf(short: string, long: string): boolean {
   const shortClean = stripSuffixes(short).toUpperCase().replace(/[^A-Z]/g, '');
@@ -438,19 +464,29 @@ function normalizePhone(phone: string): string {
 /**
  * Score a customer against structured search inputs (0–100).
  *
- * Uses evidence accumulation: each signal contributes points toward a
- * maximum. Non-matching fields score 0 but don't reduce the total.
- * The final score is: earned points / max possible points for provided inputs.
+ * Uses evidence accumulation: each signal earns points. Non-matching
+ * fields score 0 but don't reduce the total. The final score is
+ * earned / max possible for provided inputs, scaled to 0–100.
  *
- * Point budgets (max earnable per signal):
- *   Email:         35  (domain match alone is very strong in B2B)
- *   Customer name: 25  (with acronym and suffix-stripped matching)
- *   Customer code: 15
- *   Contact name:  10  (contacts change often in B2B)
- *   Phone:         10  (often personal mobiles)
- *   Address:        5  (delivery addresses change constantly)
- *   Website:       10
- *   Cross-signals: 15  (email domain ↔ customer code, name ↔ code)
+ * Designed so a single very strong signal (exact email, exact code)
+ * can clear the 80% auto-match threshold on its own, while weaker
+ * signals (domain match, name similarity) need corroboration.
+ *
+ * Point budgets — max earnable per signal:
+ *   Exact email:     35  (known contact at known company)
+ *   Email domain:    30  (new contact, same domain — strong but not conclusive
+ *                         as one company may order on behalf of another)
+ *   Customer code:   35  (exact) / scaled (partial)
+ *   Customer name:   25  (with acronym + suffix stripping)
+ *   Contact name:    10  (contacts come and go in B2B)
+ *   Phone:           15
+ *   Address:          5  (delivery addresses change constantly)
+ *   Website:         10
+ *   Cross-signals:   20  (domain ↔ code, name initials ↔ code,
+ *                         delivery country ↔ customer country)
+ *
+ * Max points adapt to which inputs are provided, so the denominator
+ * only counts signals you actually gave.
  */
 function scoreCustomer(inputs: SearchInputs, customer: any): number {
   let earned = 0;
@@ -479,19 +515,31 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     const inputEmail = inputs.email.toLowerCase().trim();
     const inputDomain = emailDomain(inputEmail);
 
-    // Exact email match
     const exactMatch = custEmails.some((ce: string) => ce.toLowerCase() === inputEmail);
     if (exactMatch) {
       earned += 35;
     } else if (inputDomain) {
-      // Exact domain match (different person, same company — very common in B2B)
       if (custDomains.includes(inputDomain)) {
+        // Domain match: strong signal but not conclusive (distributors
+        // may order on behalf of other companies)
         earned += 30;
       } else {
-        // Fuzzy domain match (typos in domain)
+        // Fuzzy domain (typos)
         const bestDomainDice = Math.max(0, ...custDomains.map((cd) => dice(inputDomain, cd)));
         if (bestDomainDice >= 0.7) earned += 25 * bestDomainDice;
       }
+    }
+  }
+
+  // ── Customer code (max 35) ──
+  if (inputs.customerCode) {
+    maxPoints += 35;
+    const inputCode = inputs.customerCode.toLowerCase().trim();
+    if (inputCode === custCode) {
+      earned += 35;
+    } else {
+      const sim = dice(inputCode, custCode);
+      if (sim >= 0.5) earned += 30 * sim;
     }
   }
 
@@ -500,18 +548,6 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     maxPoints += 25;
     const sim = nameSimilarity(inputs.customerName, custName);
     earned += 25 * sim;
-  }
-
-  // ── Customer code (max 15) ──
-  if (inputs.customerCode) {
-    maxPoints += 15;
-    const inputCode = inputs.customerCode.toLowerCase().trim();
-    if (inputCode === custCode) {
-      earned += 15;
-    } else {
-      const sim = dice(inputCode, custCode);
-      if (sim >= 0.5) earned += 15 * sim;
-    }
   }
 
   // ── Contact name (max 10) ──
@@ -529,7 +565,7 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     for (const cn of contactNames) {
       const c = cn.toLowerCase();
       bestSim = Math.max(bestSim, dice(q, c));
-      // Also try first-name or last-name only match
+      // First-name or last-name partial match
       const qParts = q.split(/\s+/);
       const cParts = c.split(/\s+/);
       for (const qp of qParts) {
@@ -543,17 +579,17 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     earned += 10 * bestSim;
   }
 
-  // ── Phone (max 10) ──
+  // ── Phone (max 15) ──
   if (inputs.phone) {
-    maxPoints += 10;
+    maxPoints += 15;
     const ip = normalizePhone(inputs.phone);
     if (ip.length >= 6) {
       for (const cp of custPhones) {
         const np = normalizePhone(cp);
         if (np.length < 6) continue;
-        if (ip === np) { earned += 10; break; }
-        if (ip.includes(np) || np.includes(ip)) { earned += 9; break; }
-        if (ip.length >= 7 && np.length >= 7 && ip.slice(-7) === np.slice(-7)) { earned += 8; break; }
+        if (ip === np) { earned += 15; break; }
+        if (ip.includes(np) || np.includes(ip)) { earned += 13; break; }
+        if (ip.length >= 7 && np.length >= 7 && ip.slice(-7) === np.slice(-7)) { earned += 11; break; }
       }
     }
   }
@@ -570,7 +606,6 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     let bestAddrSim = 0;
     for (const addr of addressStrings) {
       bestAddrSim = Math.max(bestAddrSim, dice(inputAddr, addr));
-      // City/suburb match is meaningful even without street match
       const addrTokens = addr.split(/[\s,]+/).filter((t: string) => t.length > 2);
       const inputTokens = inputAddr.split(/[\s,\-]+/).filter((t) => t.length > 2);
       let tokenMatches = 0;
@@ -599,22 +634,22 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
       }
     }
 
-    // Also check if website input looks like an email — cross-check domain
+    // Website input is actually an email — cross-check domain
     if (inputSite.includes('@')) {
       const domain = emailDomain(inputSite);
       if (domain && custDomains.includes(domain)) earned += 8;
     }
   }
 
-  // ── Cross-signal bonuses (max 15) ──
-  // These catch relationships between fields that single-field scoring misses.
-  maxPoints += 15;
+  // ── Cross-signal bonuses (max 20) ──
+  // Corroboration between different input fields and customer record fields.
+  maxPoints += 20;
 
-  // Email domain ↔ customer code (e.g. fdgnz.com ↔ FDGNZ)
+  // Email domain ↔ customer code
   if (inputs.email) {
     const inputDomain = emailDomain(inputs.email);
     if (inputDomain) {
-      const domainBase = inputDomain.split('.')[0]; // "fdgnz" from "fdgnz.com"
+      const domainBase = inputDomain.split('.')[0];
       if (custCode && (custCode === domainBase || custCode.includes(domainBase) || domainBase.includes(custCode))) {
         earned += 8;
       } else if (custCode && dice(domainBase, custCode) >= 0.7) {
@@ -623,7 +658,7 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
     }
   }
 
-  // Customer name ↔ customer code acronym (e.g. "Fasteners Direct Global" → FDG → FDGNZ)
+  // Customer name initials ↔ customer code
   if (inputs.customerName && custCode) {
     const inputStripped = stripSuffixes(inputs.customerName);
     const inputWords = inputStripped.split(/\s+/).filter((w) => w.length > 0);
@@ -631,6 +666,37 @@ function scoreCustomer(inputs: SearchInputs, customer: any): number {
       const initials = inputWords.map((w) => w[0].toLowerCase()).join('');
       if (custCode.startsWith(initials) || custCode.includes(initials)) {
         earned += 7;
+      }
+    }
+  }
+
+  // Delivery address country ↔ customer country
+  // If the input address mentions a country that matches the customer's
+  // addresses, it's a corroborating signal (e.g. NZ distributor getting
+  // a domestic delivery vs a foreign company ordering on their behalf).
+  if (inputs.address) {
+    const inputAddrLower = inputs.address.toLowerCase();
+    const custCountries: string[] = [...new Set<string>(
+      (customer.Addresses || [])
+        .map((a: any) => (a.Country || '').toLowerCase())
+        .filter(Boolean),
+    )];
+    for (const country of custCountries) {
+      if (inputAddrLower.includes(country) || country.includes(inputAddrLower.split(',').pop()?.trim() || '')) {
+        earned += 5;
+        break;
+      }
+      // Also check common abbreviations (NZ ↔ New Zealand, AU ↔ Australia)
+      const countryAbbrevs: Record<string, string[]> = {
+        'new zealand': ['nz', 'new zealand'],
+        'australia': ['au', 'aus', 'australia'],
+        'united states': ['us', 'usa', 'united states'],
+        'united kingdom': ['uk', 'united kingdom'],
+      };
+      const abbrevs = countryAbbrevs[country as keyof typeof countryAbbrevs] || [];
+      if (abbrevs.some((a) => inputAddrLower.includes(a))) {
+        earned += 5;
+        break;
       }
     }
   }
