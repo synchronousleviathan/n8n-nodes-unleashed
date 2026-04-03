@@ -83,7 +83,6 @@ export async function handleCustomer(
       address?: string;
       website?: string;
     };
-    const autoMatchThreshold = this.getNodeParameter('autoMatchThreshold', itemIndex, 80) as number;
     const maxResults = this.getNodeParameter('maxResults', itemIndex, 5) as number;
     const minConfidence = this.getNodeParameter('minConfidence', itemIndex, 10) as number;
 
@@ -99,32 +98,7 @@ export async function handleCustomer(
       .sort((a: any, b: any) => b._confidence - a._confidence)
       .slice(0, maxResults);
 
-    // Determine match status
-    const aboveThreshold = scored.filter((c: any) => c._confidence >= autoMatchThreshold);
-
-    let matchStatus: string;
-    let matchReason: string;
-
-    if (aboveThreshold.length === 1) {
-      matchStatus = 'auto_matched';
-      matchReason = `Single match above ${autoMatchThreshold}% threshold`;
-    } else if (aboveThreshold.length > 1) {
-      matchStatus = 'review_needed';
-      matchReason = `${aboveThreshold.length} matches above ${autoMatchThreshold}% threshold — ambiguous`;
-    } else if (scored.length > 0) {
-      matchStatus = 'review_needed';
-      matchReason = `No matches above ${autoMatchThreshold}% threshold — best is ${scored[0]._confidence}%`;
-    } else {
-      matchStatus = 'review_needed';
-      matchReason = 'No matching customers found';
-    }
-
-    // Tag every result with the status so downstream nodes can route
-    return scored.map((c: any) => ({
-      ...c,
-      _matchStatus: matchStatus,
-      _matchReason: matchReason,
-    }));
+    return scored;
   }
 
   if (operation === 'create') {
