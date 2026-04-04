@@ -9,9 +9,10 @@ export async function handleCustomer(
   operation: string,
   itemIndex: number,
 ) {
-  // Get Customer GUID or Code for single operations
+  // Get Customer GUID for single-record operations
   let customerGuid = '';
-  if (['get', 'update'].includes(operation)) {
+  const guidOps = ['addAddress', 'addContact', 'get', 'removeAddress', 'removeContact', 'update', 'updateAddress', 'updateContact'];
+  if (guidOps.includes(operation)) {
     customerGuid = this.getNodeParameter('customerGuid', itemIndex) as string;
   }
 
@@ -153,6 +154,70 @@ export async function handleCustomer(
     return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
   }
 
+  if (operation === 'addContact') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const details = this.getNodeParameter('contactDetails', itemIndex, {}) as Record<string, any>;
+    const newContact = mapContact(details);
+    const body = { ...current };
+    body.Contacts = [...(body.Contacts || []), newContact];
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
+  if (operation === 'updateContact') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const contactGuid = this.getNodeParameter('contactGuid', itemIndex) as string;
+    const details = this.getNodeParameter('contactDetails', itemIndex, {}) as Record<string, any>;
+    const body = { ...current };
+    const contacts = [...(body.Contacts || [])];
+    const idx = contacts.findIndex((c: any) => c.Guid === contactGuid);
+    if (idx === -1) throw new Error(`Contact with GUID ${contactGuid} not found on this customer`);
+    contacts[idx] = { ...contacts[idx], ...mapContact(details, contacts[idx]) };
+    body.Contacts = contacts;
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
+  if (operation === 'removeContact') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const contactGuid = this.getNodeParameter('contactGuid', itemIndex) as string;
+    const body = { ...current };
+    const before = (body.Contacts || []).length;
+    body.Contacts = (body.Contacts || []).filter((c: any) => c.Guid !== contactGuid);
+    if (body.Contacts.length === before) throw new Error(`Contact with GUID ${contactGuid} not found on this customer`);
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
+  if (operation === 'addAddress') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const details = this.getNodeParameter('addressDetails', itemIndex, {}) as Record<string, any>;
+    const newAddress = mapAddressDetails(details);
+    const body = { ...current };
+    body.Addresses = [...(body.Addresses || []), newAddress];
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
+  if (operation === 'updateAddress') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const addressGuid = this.getNodeParameter('addressGuid', itemIndex) as string;
+    const details = this.getNodeParameter('addressDetails', itemIndex, {}) as Record<string, any>;
+    const body = { ...current };
+    const addresses = [...(body.Addresses || [])];
+    const idx = addresses.findIndex((a: any) => a.Guid === addressGuid);
+    if (idx === -1) throw new Error(`Address with GUID ${addressGuid} not found on this customer`);
+    addresses[idx] = { ...addresses[idx], ...mapAddressDetails(details, addresses[idx]) };
+    body.Addresses = addresses;
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
+  if (operation === 'removeAddress') {
+    const current = await unleashedApiRequest.call(this, 'GET', `/Customers/${customerGuid}`);
+    const addressGuid = this.getNodeParameter('addressGuid', itemIndex) as string;
+    const body = { ...current };
+    const before = (body.Addresses || []).length;
+    body.Addresses = (body.Addresses || []).filter((a: any) => a.Guid !== addressGuid);
+    if (body.Addresses.length === before) throw new Error(`Address with GUID ${addressGuid} not found on this customer`);
+    return await unleashedApiRequest.call(this, 'POST', `/Customers/${customerGuid}`, body);
+  }
+
   return null;
 }
 
@@ -232,6 +297,65 @@ function applyCustomerDetails(body: any, d: Record<string, any>) {
     if (d.defaultWarehouseCode) body.DefaultWarehouse.WarehouseCode = d.defaultWarehouseCode;
     if (d.defaultWarehouseGuid) body.DefaultWarehouse.Guid = d.defaultWarehouseGuid;
   }
+}
+
+/**
+ * Map contact detail fields from the n8n UI to the Unleashed API format.
+ * When `existing` is provided (update), only override fields that are set.
+ */
+function mapContact(details: Record<string, any>, existing?: any): any {
+  const contact: any = existing ? { ...existing } : {};
+  const fieldMap: Record<string, string> = {
+    firstName: 'FirstName',
+    lastName: 'LastName',
+    emailAddress: 'EmailAddress',
+    phoneNumber: 'PhoneNumber',
+    mobilePhone: 'MobilePhone',
+    officePhone: 'OfficePhone',
+    ddiNumber: 'DDINumber',
+    faxNumber: 'FaxNumber',
+    tollFreeNumber: 'TollFreeNumber',
+    website: 'Website',
+    notes: 'Notes',
+    deliveryAddress: 'DeliveryAddress',
+  };
+  for (const [key, apiKey] of Object.entries(fieldMap)) {
+    if (details[key] !== undefined && details[key] !== '') contact[apiKey] = details[key];
+  }
+  const boolMap: Record<string, string> = {
+    forInvoicing: 'ForInvoicing',
+    forShipping: 'ForShipping',
+    forOrdering: 'ForOrdering',
+    isDefault: 'IsDefault',
+  };
+  for (const [key, apiKey] of Object.entries(boolMap)) {
+    if (details[key] != null) contact[apiKey] = details[key];
+  }
+  return contact;
+}
+
+/**
+ * Map address detail fields from the n8n UI to the Unleashed API format.
+ * When `existing` is provided (update), only override fields that are set.
+ */
+function mapAddressDetails(details: Record<string, any>, existing?: any): any {
+  const address: any = existing ? { ...existing } : {};
+  const fieldMap: Record<string, string> = {
+    addressType: 'AddressType',
+    addressName: 'AddressName',
+    streetAddress: 'StreetAddress',
+    streetAddress2: 'StreetAddress2',
+    suburb: 'Suburb',
+    city: 'City',
+    region: 'Region',
+    country: 'Country',
+    postalCode: 'PostalCode',
+    deliveryInstruction: 'DeliveryInstruction',
+  };
+  for (const [key, apiKey] of Object.entries(fieldMap)) {
+    if (details[key] !== undefined && details[key] !== '') address[apiKey] = details[key];
+  }
+  return address;
 }
 
 // ── Fuzzy search: candidate fetching ──

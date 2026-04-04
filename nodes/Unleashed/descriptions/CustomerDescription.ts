@@ -13,6 +13,18 @@ export const customerOperations: INodeProperties[] = [
     },
     options: [
       {
+        name: 'Add Address',
+        value: 'addAddress',
+        description: 'Add an address to a customer',
+        action: 'Add address to a customer',
+      },
+      {
+        name: 'Add Contact',
+        value: 'addContact',
+        description: 'Add a contact to a customer',
+        action: 'Add contact to a customer',
+      },
+      {
         name: 'Create',
         value: 'create',
         description: 'Create a customer',
@@ -37,10 +49,34 @@ export const customerOperations: INodeProperties[] = [
         action: 'Get many customers',
       },
       {
+        name: 'Remove Address',
+        value: 'removeAddress',
+        description: 'Remove an address from a customer',
+        action: 'Remove address from a customer',
+      },
+      {
+        name: 'Remove Contact',
+        value: 'removeContact',
+        description: 'Remove a contact from a customer',
+        action: 'Remove contact from a customer',
+      },
+      {
         name: 'Update',
         value: 'update',
         description: 'Update a customer',
         action: 'Update a customer',
+      },
+      {
+        name: 'Update Address',
+        value: 'updateAddress',
+        description: 'Update an existing address on a customer',
+        action: 'Update address on a customer',
+      },
+      {
+        name: 'Update Contact',
+        value: 'updateContact',
+        description: 'Update an existing contact on a customer',
+        action: 'Update contact on a customer',
       },
     ],
     default: 'get',
@@ -48,7 +84,7 @@ export const customerOperations: INodeProperties[] = [
 ];
 
 export const customerFields: INodeProperties[] = [
-  // GET / UPDATE — Customer GUID
+  // Customer GUID — used by single-record operations
   {
     displayName: 'Customer GUID',
     name: 'customerGuid',
@@ -56,7 +92,7 @@ export const customerFields: INodeProperties[] = [
     displayOptions: {
       show: {
         resource: ['customer'],
-        operation: ['get', 'update'],
+        operation: ['addAddress', 'addContact', 'get', 'removeAddress', 'removeContact', 'update', 'updateAddress', 'updateContact'],
       },
     },
     default: '',
@@ -195,6 +231,256 @@ export const customerFields: INodeProperties[] = [
     },
     default: 10,
     description: 'Only return results above this confidence level (filters noise)',
+  },
+
+  // ADD / UPDATE / REMOVE CONTACT — fields
+  {
+    displayName: 'Contact GUID',
+    name: 'contactGuid',
+    type: 'string',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['removeContact', 'updateContact'],
+      },
+    },
+    default: '',
+    required: true,
+    description: 'The GUID of the contact to update or remove',
+  },
+  {
+    displayName: 'Contact Details',
+    name: 'contactDetails',
+    type: 'collection',
+    placeholder: 'Add Field',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['addContact', 'updateContact'],
+      },
+    },
+    default: {},
+    options: [
+      {
+        displayName: 'DDI Number',
+        name: 'ddiNumber',
+        type: 'string',
+        default: '',
+        description: 'The direct dial-in number for the contact',
+      },
+      {
+        displayName: 'Delivery Address Name',
+        name: 'deliveryAddress',
+        type: 'string',
+        default: '',
+        description: 'The name of the delivery address to associate with this contact',
+      },
+      {
+        displayName: 'Email',
+        name: 'emailAddress',
+        type: 'string',
+        placeholder: 'name@email.com',
+        default: '',
+        description: 'The contact\'s email address',
+      },
+      {
+        displayName: 'Fax Number',
+        name: 'faxNumber',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s fax number',
+      },
+      {
+        displayName: 'First Name',
+        name: 'firstName',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s first name',
+      },
+      {
+        displayName: 'For Invoicing',
+        name: 'forInvoicing',
+        type: 'boolean',
+        default: false,
+        description: 'Whether this contact receives invoices',
+      },
+      {
+        displayName: 'For Ordering',
+        name: 'forOrdering',
+        type: 'boolean',
+        default: false,
+        description: 'Whether this contact is used for ordering',
+      },
+      {
+        displayName: 'For Shipping',
+        name: 'forShipping',
+        type: 'boolean',
+        default: false,
+        description: 'Whether this contact is used for shipping',
+      },
+      {
+        displayName: 'Is Default',
+        name: 'isDefault',
+        type: 'boolean',
+        default: false,
+        description: 'Whether this is the default contact',
+      },
+      {
+        displayName: 'Last Name',
+        name: 'lastName',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s last name',
+      },
+      {
+        displayName: 'Mobile Phone',
+        name: 'mobilePhone',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s mobile phone number',
+      },
+      {
+        displayName: 'Notes',
+        name: 'notes',
+        type: 'string',
+        default: '',
+        description: 'Notes about the contact',
+      },
+      {
+        displayName: 'Office Phone',
+        name: 'officePhone',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s office phone number',
+      },
+      {
+        displayName: 'Phone Number',
+        name: 'phoneNumber',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s phone number',
+      },
+      {
+        displayName: 'Toll-Free Number',
+        name: 'tollFreeNumber',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s toll-free number',
+      },
+      {
+        displayName: 'Website',
+        name: 'website',
+        type: 'string',
+        default: '',
+        description: 'The contact\'s website',
+      },
+    ],
+  },
+
+  // ADD / UPDATE / REMOVE ADDRESS — fields
+  {
+    displayName: 'Address GUID',
+    name: 'addressGuid',
+    type: 'string',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['removeAddress', 'updateAddress'],
+      },
+    },
+    default: '',
+    required: true,
+    description: 'The GUID of the address to update or remove',
+  },
+  {
+    displayName: 'Address Details',
+    name: 'addressDetails',
+    type: 'collection',
+    placeholder: 'Add Field',
+    displayOptions: {
+      show: {
+        resource: ['customer'],
+        operation: ['addAddress', 'updateAddress'],
+      },
+    },
+    default: {},
+    options: [
+      {
+        displayName: 'Address Name',
+        name: 'addressName',
+        type: 'string',
+        default: '',
+        description: 'A label for this address',
+      },
+      {
+        displayName: 'Address Type',
+        name: 'addressType',
+        type: 'options',
+        options: [
+          { name: 'Physical', value: 'Physical' },
+          { name: 'Postal', value: 'Postal' },
+          { name: 'Shipping', value: 'Shipping' },
+        ],
+        default: 'Shipping',
+        description: 'The type of address',
+      },
+      {
+        displayName: 'City',
+        name: 'city',
+        type: 'string',
+        default: '',
+        description: 'The city',
+      },
+      {
+        displayName: 'Country',
+        name: 'country',
+        type: 'string',
+        default: '',
+        description: 'The country',
+      },
+      {
+        displayName: 'Delivery Instruction',
+        name: 'deliveryInstruction',
+        type: 'string',
+        default: '',
+        description: 'Delivery instructions for this address',
+      },
+      {
+        displayName: 'Postal Code',
+        name: 'postalCode',
+        type: 'string',
+        default: '',
+        description: 'The postal or zip code',
+      },
+      {
+        displayName: 'Region',
+        name: 'region',
+        type: 'string',
+        default: '',
+        description: 'The region or state',
+      },
+      {
+        displayName: 'Street Address',
+        name: 'streetAddress',
+        type: 'string',
+        default: '',
+        description: 'The street address (line 1)',
+      },
+      {
+        displayName: 'Street Address 2',
+        name: 'streetAddress2',
+        type: 'string',
+        default: '',
+        description: 'The street address (line 2)',
+      },
+      {
+        displayName: 'Suburb',
+        name: 'suburb',
+        type: 'string',
+        default: '',
+        description: 'The suburb',
+      },
+    ],
   },
 
   // GET ALL — Filters
