@@ -429,14 +429,12 @@ export const customerFields: INodeProperties[] = [
         name: 'city',
         type: 'string',
         default: '',
-        description: 'The city',
       },
       {
         displayName: 'Country',
         name: 'country',
         type: 'string',
         default: '',
-        description: 'The country',
       },
       {
         displayName: 'Delivery Instruction',
@@ -478,7 +476,6 @@ export const customerFields: INodeProperties[] = [
         name: 'suburb',
         type: 'string',
         default: '',
-        description: 'The suburb',
       },
     ],
   },
