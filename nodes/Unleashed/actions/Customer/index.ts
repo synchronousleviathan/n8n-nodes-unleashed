@@ -87,6 +87,20 @@ export async function handleCustomer(
     const maxResults = this.getNodeParameter('maxResults', itemIndex, 5) as number;
     const minConfidence = this.getNodeParameter('minConfidence', itemIndex, 10) as number;
 
+    // If customer code is provided, try exact match first — this is a
+    // high-confidence signal so we short-circuit if it hits.
+    if (inputs.customerCode) {
+      const codeResults = await unleashedApiRequestAllItems.call(
+        this, 'Items', 'GET', '/Customers', {}, { customerCode: inputs.customerCode },
+      );
+      const exactMatch = codeResults.find(
+        (c: any) => (c.CustomerCode || '').toLowerCase() === inputs.customerCode!.toLowerCase(),
+      );
+      if (exactMatch) {
+        return [{ ...exactMatch, _confidence: 100 }];
+      }
+    }
+
     const candidates = await fetchCandidates.call(this, inputs);
 
     // Score and rank
